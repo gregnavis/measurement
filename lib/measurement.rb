@@ -14,8 +14,7 @@ class Measurement
     if @unit == measurement.unit
       result = Measurement.new(@amount + measurement.amount, @unit)
     else
-      lhs = @unit.convert_amount_base_units(@amount)
-      rhs = measurement.unit.convert_amount_base_units(measurement.amount)
+      lhs, rhs = in_base_unit, measurement.in_base_unit
 
       if lhs.unit == rhs.unit
         result = Measurement.new(lhs.amount + rhs.amount, lhs.unit)
@@ -43,8 +42,7 @@ class Measurement
     if @unit == measurement.unit || [@unit, measurement.unit].include?(NullUnit.instance)
       Measurement.new(@amount * measurement.amount, @unit * measurement.unit)
     else
-      lhs = @unit.convert_amount_base_units(@amount)
-      rhs = measurement.unit.convert_amount_base_units(measurement.amount)
+      lhs, rhs = in_base_unit, measurement.in_base_unit
       Measurement.new(lhs.amount * rhs.amount, lhs.unit * rhs.unit)
     end
   end
@@ -61,8 +59,7 @@ class Measurement
     if @unit == measurement.unit
       lhs, rhs = self, measurement
     else
-      lhs = @unit.convert_amount_base_units(@amount)
-      rhs = measurement.unit.convert_amount_base_units(measurement.amount)
+      lhs, rhs = in_base_unit, measurement.in_base_unit
 
       if lhs.unit != rhs.unit
         fail("#{@unit.name} and #{measurement.unit.name} are not compatible")
@@ -74,6 +71,12 @@ class Measurement
   def to_s
     "#{@amount} #{@unit.name}"
   end
+
+  protected
+
+    def in_base_unit
+      @unit.convert_amount_base_units(@amount)
+    end
 end
 
 class NullMeasurement
