@@ -31,26 +31,12 @@ class Measurement
     end
   end
 
+  def -@
+    Measurement.new(-@amount, @unit)
+  end
+
   def -(measurement)
-    if @unit == measurement.unit
-      result = Measurement.new(@amount - measurement.amount, @unit)
-    else
-      lhs = @unit.convert_amount_base_units(@amount)
-      rhs = measurement.unit.convert_amount_base_units(measurement.amount)
-
-      if lhs.unit == rhs.unit
-        result = Measurement.new(lhs.amount - rhs.amount, lhs.unit)
-      else
-        fail("#{@unit.name} and #{measurement.unit.name} are not compatible")
-      end
-    end
-
-
-    if result.amount == 0
-      NullMeasurement.instance
-    else
-      result
-    end
+    self + (-measurement)
   end
 
   def *(measurement)
@@ -63,14 +49,12 @@ class Measurement
     end
   end
 
+  def reciprocal
+    Measurement.new(1.0 / @amount, @unit.reciprocal)
+  end
+
   def /(measurement)
-    if @unit == measurement.unit || [@unit, measurement.unit].include?(NullUnit.instance)
-      Measurement.new(@amount / measurement.amount, @unit / measurement.unit)
-    else
-      lhs = @unit.convert_amount_base_units(@amount)
-      rhs = measurement.unit.convert_amount_base_units(measurement.amount)
-      Measurement.new(lhs.amount / rhs.amount, lhs.unit / rhs.unit)
-    end
+    self * measurement.reciprocal
   end
 
   def <=>(measurement)
@@ -132,18 +116,12 @@ class BaseUnit
     end
   end
 
+  def reciprocal
+    DividedUnit.new(NullUnit.instance, self)
+  end
+
   def /(unit)
-    case unit
-      when BaseUnit, ProportionalDerivedUnit
-        DividedUnit.new(self, unit)
-      when DividedUnit
-        DividedUnit.new(MultipliedUnit.new([self, unit.denominator]),
-                        unit.numerator)
-      when MultipliedUnit
-        DividedUnit.new(self, unit)
-      when NullUnit
-        self
-    end
+    self * unit.reciprocal
   end
 end
 
@@ -180,15 +158,12 @@ class NullUnit
     unit
   end
 
+  def reciprocal
+    self
+  end
+
   def /(unit)
-    case unit
-      when DividedUnit
-        DividedUnit.new(unit.denominator, unit.numerator)
-      when NullUnit
-        self
-      else
-        DividedUnit.new(self, unit)
-    end
+    self * unit.reciprocal
   end
 end
 
@@ -242,18 +217,12 @@ class DividedUnit
     end
   end
 
+  def reciprocal
+    DividedUnit.new(@denominator, @numerator)
+  end
+
   def /(unit)
-    case unit
-      when BaseUnit, ProportionalDerivedUnit
-        DividedUnit.new(@numerator, @denominator * unit)
-      when DividedUnit
-        DividedUnit.new(@numerator * unit.denominator,
-                        @denominator * unit.numerator)
-      when MultipliedUnit
-        DividedUnit.new(@numerator, @denominator * unit)
-      when NullUnit
-        self
-    end
+    self * (unit.reciprocal)
   end
 end
 
@@ -292,17 +261,12 @@ class MultipliedUnit
     end
   end
 
+  def reciprocal
+    DividedUnit.new(NullUnit.instance, self)
+  end
+
   def /(unit)
-    case unit
-      when BaseUnit, ProportionalDerivedUnit
-        DividedUnit.new(self, unit)
-      when DividedUnit
-        DividedUnit.new(self * unit.denominator, unit.numerator)
-      when MultipliedUnit
-        DividedUnit.new(self, unit)
-      when NullUnit
-        self
-    end
+    self * unit.reciprocal
   end
 end
 
