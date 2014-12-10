@@ -5,6 +5,174 @@ require 'minitest/autorun'
 
 describe Measurement do
   before do
+    @m = BaseUnit.new('m')
+    @cm = ProportionalDerivedUnit.new('cm', 0.01, @m)
+    @s = BaseUnit.new('s')
+    @h = ProportionalDerivedUnit.new('h', 3600, @s)
+
+    @_10m = Measurement.new(10, @m)
+    @_2m = Measurement.new(2, @m)
+    @_50cm = Measurement.new(50, @cm)
+
+    @_10s = Measurement.new(10, @s)
+  end
+
+  it 'has an amount' do
+    assert_equal(10, @_10m.amount)
+  end
+
+  it 'has a unit' do
+    assert_equal(@m, @_10m.unit)
+  end
+
+  describe 'to_s' do
+    it 'prints the unit' do
+      assert_equal('10 m', @_10m.to_s)
+    end
+  end
+
+  describe '+' do
+    it 'does not convert equal units' do
+      sum = @_10m + @_2m
+
+      assert_equal(12, sum.amount)
+      assert_equal(@m, sum.unit)
+    end
+
+    it 'converts compatible units' do
+      sum = @_2m + @_50cm
+
+      assert_equal(2.5, sum.amount)
+      assert_equal(@m, sum.unit)
+    end
+
+    it 'fails on incompatible units' do
+      assert_raises(RuntimeError) do
+        Measurement.new(1, @m) + Measurement.new(2, @s)
+      end
+    end
+
+    it 'yields null measurement amount becomes zero' do
+      measurement = Measurement.new(1, @m) + Measurement.new(-1, @m)
+
+      assert_equal(NullMeasurement.instance, measurement)
+    end
+  end
+
+  describe '-' do
+    it 'does not convert equal units' do
+      sum = @_10m - @_2m
+
+      assert_equal(8, sum.amount)
+      assert_equal(@m, sum.unit)
+    end
+
+    it 'converts compatible units' do
+      sum = @_2m - @_50cm
+
+      assert_equal(1.5, sum.amount)
+      assert_equal(@m, sum.unit)
+    end
+
+    it 'fails on incompatible units' do
+      assert_raises(RuntimeError) do
+        Measurement.new(1, @m) - Measurement.new(2, @s)
+      end
+    end
+
+    it 'yields null measurement amount becomes zero' do
+      measurement = @_10m - @_10m
+
+      assert_equal(NullMeasurement.instance, measurement)
+    end
+  end
+
+  describe '*' do
+    it 'multiplies equal units' do
+      product = Measurement.new(2, @m) * Measurement.new(3, @m)
+
+      assert_equal(6, product.amount)
+      assert_equal([@m, @m], product.unit.factors)
+    end
+
+    it 'multiplies by null unit without conversion' do
+      product = Measurement.new(2, @h) * Measurement.new(3, NullUnit.instance)
+
+      assert_equal(6, product.amount)
+      assert_equal(@h, product.unit)
+    end
+
+    it 'converts unequal units' do
+      product = Measurement.new(2, @m) * Measurement.new(300, @cm)
+
+      assert_equal(6, product.amount)
+      assert_equal([@m, @m], product.unit.factors)
+    end
+  end
+
+  describe '/' do
+    it 'yields no units for equal unit' do
+      quotient = Measurement.new(6, @m) / Measurement.new(2, @m)
+
+      assert_equal(3, quotient.amount)
+      assert_equal(NullUnit.instance, quotient.unit)
+    end
+
+    it 'divides by null unit without conversion' do
+      product = Measurement.new(4, @h) / Measurement.new(2, NullUnit.instance)
+
+      assert_equal(2, product.amount)
+      assert_equal(@h, product.unit)
+    end
+
+    it 'converts and divides other units' do
+      quotient = Measurement.new(10800, @m) / Measurement.new(1, @h)
+
+      assert_equal(3, quotient.amount)
+      assert_equal(@m, quotient.unit.numerator)
+      assert_equal(@s, quotient.unit.denominator)
+    end
+  end
+
+  describe '<=>' do
+    it 'compares amounts of equal units' do
+      assert_equal(0, Measurement.new(1, @m) <=> Measurement.new(1, @m))
+      assert_equal(1, Measurement.new(2, @m) <=> Measurement.new(1, @m))
+      assert_equal(-1, Measurement.new(2, @m) <=> Measurement.new(3, @m))
+    end
+
+    it 'converts amounts of inequal units' do
+      assert_equal(0, Measurement.new(1, @m) <=> Measurement.new(100, @cm))
+      assert_equal(0, Measurement.new(100, @cm) <=> Measurement.new(1, @m))
+    end
+
+    it 'fails on incompatible units' do
+      assert_raises(RuntimeError) do
+        Measurement.new(1, @m) <=> Measurement.new(1, @s)
+      end
+    end
+  end
+
+  it 'responds to comparison methods' do
+    assert(@_10m.respond_to?(:<))
+    assert(@_10m.respond_to?(:<=))
+    assert(@_10m.respond_to?(:>))
+    assert(@_10m.respond_to?(:>=))
+  end
+end
+
+describe NullMeasurement do
+  it 'reports 0 amount' do
+    assert_equal(0, NullMeasurement.instance.amount)
+  end
+
+  it 'reports null unit' do
+    assert_equal(NullUnit.instance, NullMeasurement.instance.unit)
+  end
+end
+
+describe 'units' do
+  before do
     @null = NullUnit.instance
     @kg = BaseUnit.new('kg')
     @m = BaseUnit.new('m')
@@ -34,6 +202,10 @@ describe Measurement do
 
     describe 'convert_amount_base_units' do
       it 'returns the amount expressed in itself' do
+        measurement = @m.convert_amount_base_units(1)
+
+        assert_equal(1, measurement.amount)
+        assert_equal(@m, measurement.unit)
       end
     end
 
@@ -112,6 +284,10 @@ describe Measurement do
 
     describe 'convert_amount_base_units' do
       it 'returns the amount in the base unit' do
+        measurement = @km.convert_amount_base_units(1)
+
+        assert_equal(1000, measurement.amount)
+        assert_equal(@m, measurement.unit)
       end
     end
 
@@ -176,6 +352,10 @@ describe Measurement do
   end
 
   describe DividedUnit do
+    it 'returns null unit when they are identical' do
+      assert_equal(@null, DividedUnit.new(@m, @m))
+    end
+
     describe 'name' do
       it 'does not put parentheses around base units' do
         assert_equal('m / s', @m_per_s.name)
@@ -201,6 +381,11 @@ describe Measurement do
 
     describe 'convert_amount_base_units' do
       it 'returns the amount in the base unit' do
+        measurement = @km_per_h.convert_amount_base_units(1)
+
+        assert_equal(1000 / 3600, measurement.amount)
+        assert_equal(@m, measurement.unit.numerator)
+        assert_equal(@s, measurement.unit.denominator)
       end
     end
 
@@ -283,10 +468,15 @@ describe Measurement do
     end
 
     it 'references the correct base unit' do
+      assert_equal([@m, @s], (@km * @h).base_unit.factors)
     end
 
     describe 'convert_amount_base_units' do
       it 'returns the amount in the base unit' do
+        measurement = (@km * @h).convert_amount_base_units(1)
+
+        assert_equal(1000 * 3600, measurement.amount)
+        assert_equal([@m, @s], measurement.unit.factors)
       end
     end
 
@@ -366,6 +556,10 @@ describe Measurement do
 
     describe 'convert_amount_base_units' do
       it 'returns the amount with null unit' do
+        measurement = @null.convert_amount_base_units(2)
+
+        assert_equal(2, measurement.amount)
+        assert_equal(@null, measurement.unit)
       end
     end
 
@@ -394,5 +588,15 @@ describe Measurement do
         assert_equal(@km, quotient.denominator)
       end
     end
+  end
+end
+
+describe Numeric do
+  it 'returns self as amount' do
+    assert_equal(2, 2.amount)
+  end
+
+  it 'returns null unit' do
+    assert_equal(NullUnit.instance, 2.unit)
   end
 end
